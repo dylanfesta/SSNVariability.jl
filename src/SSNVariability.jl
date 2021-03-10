@@ -1,8 +1,31 @@
 module SSNVariability
-using LinearAlgebra
-using StochasticDiffEq
-using OrdinaryDiffEq
+using LinearAlgebra, Statistics
 using Distributions
+
+using OrdinaryDiffEq, StochasticDiffEq
+
+
+
+"""
+    random_covariance_matrix(dims::Integer,diag_val::Real,k_dims::Integer=5)
+
+Returns a random covariance matrix that is positive definite
+and has off-diagonal elements.
+# Arguments
+- `d`: dimensions
+- `diag_val`: scaling of the diagonal
+- `k-dims`: to regulate off-diagonal elements
+"""
+function random_covariance_matrix(dims::Integer,diag_val::Real,k_dims::Integer=5)
+  W = randn(dims,k_dims)
+  S = W*W'+ Diagonal(rand(dims))
+  temp_diag = Diagonal(inv.(sqrt.(diag(S))))
+  S = temp_diag * S * temp_diag
+  S .*= diag_val
+  ret = Symmetric(S)
+  return ret
+end
+
 
 abstract type  IOFunction{R} end
 Base.Broadcast.broadcastable(x::IOFunction)=Ref(x)
@@ -46,6 +69,7 @@ struct RecurrentNeuralNetwork{R}
   weight_matrix::Matrix{R}
   time_membrane::Vector{R}
   base_input::Vector{R}
+  sigma_noise::Matrix{R}
 end
 
 # generate weight matrix
@@ -118,9 +142,11 @@ end
 function RecurrentNeuralNetwork(ne::I,ni::I) where I<:Integer
     iofun_default=ReQuad(0.02)
     wmat = make_wmat(ne,ni)
-    input=input_base_default(ne+ni)
+    ntot=ne+ni
+    input=input_base_default(ntot)
     taus=time_membrane_default(ne,ni)
-    return RecurrentNeuralNetwork(iofun_default,wmat,taus,input)
+    sigma_noise=zeros(ntot,ntot)
+    return RecurrentNeuralNetwork(iofun_default,wmat,taus,input,sigma_noise)
 end
 
 
@@ -226,13 +252,27 @@ function run_network_nonoise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},
   return solv.t,ret_u,ret_r
 end
 
-function run_network_noise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},
-    noiselevel::Real,t_end::Real; verbose::Bool=false,stepsize=0.05) where R<:Real
+function run_network_noise_simple(ntw::RecurrentNeuralNetwork{R},
+    r_start::Vector{R},noiselevel::Real,t_end::Real;
+    verbose::Bool=false,stepsize=0.05) where R<:Real
   u0=ioinv.(r_start,ntw)
   f(du,u,p,t) = du_nonoise!(du,u,ntw)
   σ_f(du,u,p,t) = fill!(du,noiselevel)
   prob = SDEProblem(f,σ_f,u0,(0.,t_end))
   solv =  solve(prob,EM();verbose=verbose,dt=stepsize)
+  ret_u = hcat(solv.u...)
+  ret_r = iofun.(ret_u,ntw)
+  return solv.t,ret_u,ret_r
+end
+
+function run_network_noise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},t_end::Real;
+    verbose::Bool=false,stepsize=0.05) where R<:Real
+  u0=ioinv.(r_start,ntw)
+  f(du,u,p,t) = du_nonoise!(du,u,ntw)
+  σ_f(du,u,p,t) = copy!(du,ntw.sigma_noise)
+  prob = SDEProblem(f,σ_f,u0,(0.,t_end);noise_rate_prototype=zero(ntw.sigma_noise))
+  #solv =  solve(prob,EM();verbose=verbose,dt=stepsize)
+  solv = solve(prob,EulerHeun();dt=stepsize)
   ret_u = hcat(solv.u...)
   ret_r = iofun.(ret_u,ntw)
   return solv.t,ret_u,ret_r
@@ -281,50 +321,7 @@ function run_network_to_convergence(ntw::RecurrentNeuralNetwork{R},
     return u_out,ntw.iofun.(u_out)
 end
 
-
-## compute the evolution of the mean
-
-function nu_fun1(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
-  nr=Normal()
-  return  @. α*(
-    mu*pdf(nr,mu/sqrt(sigma_diag))+sqrt(sigma_diag)*cdf(nr,mu/sqrt(sigma_diag)))
-end
-function nu_fun2(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
-  nu1=nu_fun1(mu,sigma_diag,α)
-  return @. mu * nu1 + α*sigma_diag*pdf(Normal(),mu/sqrt(sigma_diag))
-end
-function gamma_fun1(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
-  return @.  α*(mu*pdf(nr,mu/sqrt(sigma_diag)))
-end
-function gamma_fun2(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
-  return 2 .* nu_fun1(mu,sigma_diag,α)
-end
-function other_j(mu::Vector{R},sigma_diag::Vector{R},
-    ntw::RecurrentNeuralNetwork{R}) where R
-  if typeof(ntw.iofun) <: ReQuad
-      γ = gamma_fun2(mu,sigma_diag,ntw.iofun.α)
-  elseif typeof(ntw.iofun) <: ReLu
-      γ = gamma_fun1(mu,sigma_diag,ntw.iofun.α)
-  end
-  ret=copy(ntw.weight_matrx)
-  broadcast!(*,ret,ret,transpose(γ))
-  ret -= I
-  return broadcast!(/,ret,ret,ntw.time_membrane)
-end
-
-
-function dmu!(des::V,mu::V,sigma_diagonal::V,
-    ntw::RecurrentNeuralNetwork{R}) where {R<:Real,V<:Vector{R}}
-  if typeof(ntw.iofun) <: ReQuad
-      ν = nu_fun2(mu,sigma_diag,ntw.iofun.α)
-  elseif typeof(ntw.iofun) <: ReLu
-      ν = nu_fun1(mu,sigma_diag,ntw.iofun.α)
-  end
-  @. des = ntw.base_input - mu
-  BLAS.gemv!('N',1.,ntw.weight_matrix,ν,1.,dest)
-  return scalebytime!(dest,ntw)
-end
-
+include("variability.jl")
 
 
 end # module

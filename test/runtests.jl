@@ -32,3 +32,27 @@ end
      Jan=S.jacobian(utest,ntw)
      @test all(isapprox.(Jnum,Jan;rtol=1E-4))
 end
+
+# W=0 , mean is input current
+@testset "estimate of mean" begin
+  ne,ni = 13,10
+  ntot = ne+ni
+  ntw = S.RecurrentNeuralNetwork(ne,ni)
+  fill!(ntw.weight_matrix,0.0)
+  h_test = 3.0*randn(ntot)
+  copy!(ntw.base_input,h_test)
+  noise_test=S.random_covariance_matrix(ntot,3.3)
+  copy!(ntw.sigma_noise,noise_test)
+  mucurr=fill(3.,ntot)
+  sigmacurr = fill(0.0,ntot,ntot)
+  mu=copy(mucurr)
+  sigma=copy(sigmacurr)
+  for i in 1:100
+    S.dmuSigma_step!(mucurr,sigmacurr,mu,sigma,0.001,ntw)
+    copy!(mu,mucurr)
+    copy!(sigma,sigmacurr)
+  end
+  mu_an,sigma_an=S.mustart_sigmastart(ntw)
+  @test all(isapprox.(mucurr,mu_an;atol=0.05))
+  @test all(isapprox.(sigmacurr,sigma_an;atol=0.05))
+end
