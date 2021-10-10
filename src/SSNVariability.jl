@@ -57,7 +57,7 @@ struct ReQuad{R} <:IOFunction{R}
   α::R
 end
 
-function (g::ReQuad{R})(x::{R}) where R
+function (g::ReQuad{R})(x::R) where R
   ret = x < zero(R) ? zero(R) : g.α*x*x
   return ret
 end
