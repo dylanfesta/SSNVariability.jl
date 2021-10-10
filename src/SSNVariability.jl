@@ -32,8 +32,8 @@ Base.Broadcast.broadcastable(x::IOFunction)=Ref(x)
 
 function iofun!(dest::Vector{R},source::Vector{R},
     io::IOFunction{R}) where R
-  for i in eachindex(dest)
-    @inbounds dest[i] = io(source[i])
+  @inbounds @simd for i in eachindex(dest)
+    dest[i] = io(source[i])
   end
   return dest
 end
@@ -50,19 +50,19 @@ function (g::ReLu)(x::Real)
   re = x < 0 ? zero(x) : g.α*x
   return re
 end
-ioinv(x::Real,g::ReLu) = x < 0 ? zero(x) : x/g.α
-ioprime(x::Real,g::ReLu) =x < 0 ? zero(x) : g.α
+ioinv(x::R,g::ReLu{R}) where R<:Real = x < zero(R) ? zero(R) : x/g.α
+ioprime(x::R,g::ReLu{R}) where R<:Real = x < zero(R) ? zero(R) : g.α
 
 struct ReQuad{R} <:IOFunction{R}
   α::R
 end
 
-function (g::ReQuad)(x::Real)
-  ret = x < 0 ? zero(x) : g.α*x*x
+function (g::ReQuad{R})(x::{R}) where R
+  ret = x < zero(R) ? zero(R) : g.α*x*x
   return ret
 end
-ioinv(x::Real,g::ReQuad) =  x < 0 ? zero(x) : sqrt(x/g.α)
-ioprime(x::Real,g::ReQuad) =x < 0 ? zero(x) : 2.0*g.α*x
+ioinv(x::R,g::ReQuad{R}) where R =  x < zero(R) ? zero(R) : sqrt(x/g.α)
+ioprime(x::R,g::ReQuad{R}) where R = x < zero(R) ? zero(R) : 2.0*g.α*x
 
 struct RecurrentNeuralNetwork{R}
   iofun::IOFunction{R}
@@ -71,6 +71,10 @@ struct RecurrentNeuralNetwork{R}
   base_input::Vector{R}
   sigma_noise::Matrix{R}
 end
+Base.Broadcast.broadcastable(x::RecurrentNeuralNetwork)=Ref(x)
+function Base.ndims(rnn::RecurrentNeuralNetwork)
+  return size(rnn.weight_matrix,1)
+end
 
 # generate weight matrix
 """
@@ -78,9 +82,10 @@ end
 Replaces the matrix diagonal with zeros
 """
 function diagtozero!(M::AbstractMatrix{T}) where T
-    ms = minimum(size(M))
-    for i in 1:ms
-        @inbounds M[i,i] = zero(T)
+    ms = min(size(M)...)
+    zz = zero(T)
+    @inbounds @simd for i in 1:ms
+        M[i,i] = zz
     end
     return nothing
 end
@@ -150,10 +155,6 @@ function RecurrentNeuralNetwork(ne::I,ni::I) where I<:Integer
 end
 
 
-Base.Broadcast.broadcastable(x::RecurrentNeuralNetwork)=Ref(x)
-function Base.ndims(rnn::RecurrentNeuralNetwork)
-  return size(rnn.weight_matrix,1)
-end
 function scalebytime!(v::Vector{R},rnn::RecurrentNeuralNetwork{R}) where R
   v ./= rnn.time_membrane
   return v

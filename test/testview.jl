@@ -1,9 +1,11 @@
-using Pkg
-pkg"activate ."
+push!(LOAD_PATH, abspath(@__DIR__,".."))
+
 using SSNVariability ; const S = SSNVariability
 using Test
 using LinearAlgebra,Calculus,Statistics
 using Plots,NamedColors ; theme(:dark)
+
+##
 
 function eiplot(t::V,e::V,i::V) where V<:Vector{<:Real}
   plt=plot()
