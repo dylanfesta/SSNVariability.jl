@@ -1,8 +1,11 @@
 using SSNVariability ; const S=SSNVariability
 using Calculus, Distributions, LinearAlgebra, Statistics
+using Random
 using Test
 
-@testset "SSNVariability.jl" begin
+Random.seed!(0)
+
+@testset "input-output functions" begin
     g1=S.ReLu(1.2)
     @test g1(3.3) ≈ 3.3*1.2
     g2=S.ReQuad(4.4)
@@ -33,26 +36,52 @@ end
      @test all(isapprox.(Jnum,Jan;rtol=1E-3))
 end
 
-# W=0 , mean is input current
-@testset "estimate of mean" begin
-  ne,ni = 13,10
+@testset "Find mean with variance from simulation" begin
+  ne,ni = 43,22
   ntot = ne+ni
-  ntw = S.RecurrentNeuralNetwork(ne,ni)
-  fill!(ntw.weight_matrix,0.0)
-  h_test = 3.0*randn(ntot)
-  copy!(ntw.base_input,h_test)
-  noise_test=S.random_covariance_matrix(ntot,3.3)
-  copy!(ntw.sigma_noise,noise_test)
-  mucurr=fill(3.,ntot)
-  sigmacurr = fill(0.0,ntot,ntot)
-  mu=copy(mucurr)
-  sigma=copy(sigmacurr)
-  for i in 1:100
-    S.dmuSigma_step!(mucurr,sigmacurr,mu,sigma,0.001,ntw)
-    copy!(mu,mucurr)
-    copy!(sigma,sigmacurr)
+  cov_noise_test=S.random_covariance_matrix(ntot,3.3)
+  ntw = S.RecurrentNeuralNetwork(ne,ni;sigma_noise=cov_noise_test)
+
+  # more weight variability
+  wscal = rand(Uniform(0.5,1.5),S.n_neurons(ntw))
+  broadcast!(*,ntw.weight_matrix,ntw.weight_matrix,wscal)
+  mu_out,_ = S.mustart_sigmastart(ntw)
+  r_sim_start = ntw.iofun.(mu_out)
+
+  t,ev_v,ei=S.run_network_noise(ntw,r_sim_start,40.;verbose=true,stepsize=0.01)
+  r_sim_out = median(ei;dims=2)[:]
+  cov_diag_an = diag(cov(ev_v;dims=2))
+
+  dmu_alloc = similar(mu_out)
+  ε = 1E-3
+  for i in 1:5000
+    S.dmu!(dmu_alloc,mu_out,cov_diag_an,ntw)
+    mu_out .+= ε*dmu_alloc
   end
-  mu_an,sigma_an=S.mustart_sigmastart(ntw)
-  @test all(isapprox.(mucurr,mu_an;atol=0.05))
-  @test all(isapprox.(sigmacurr,sigma_an;atol=0.05))
+  r_an_out = ntw.iofun.(mu_out)
+  @test all(isapprox.(r_an_out,r_sim_out;atol=0.25))
 end
+
+
+# @testset "Unconnected mean and variance" begin
+#   ne,ni = 13,10
+#   ntot = ne+ni
+#   ntw = S.RecurrentNeuralNetwork(ne,ni)
+#   fill!(ntw.weight_matrix,0.0)
+#   h_test = 3.0*randn(ntot)
+#   copy!(ntw.base_input,h_test)
+#   noise_test=S.random_covariance_matrix(ntot,3.3)
+#   copy!(ntw.sigma_noise,noise_test)
+#   mucurr=fill(3.,ntot)
+#   sigmacurr = fill(0.0,ntot,ntot)
+#   mu=copy(mucurr)
+#   sigma=copy(sigmacurr)
+#   for i in 1:100
+#     S.dmuSigma_step!(mucurr,sigmacurr,mu,sigma,0.001,ntw)
+#     copy!(mu,mucurr)
+#     copy!(sigma,sigmacurr)
+#   end
+#   mu_an,sigma_an=S.mustart_sigmastart(ntw)
+#   @test all(isapprox.(mucurr,mu_an;atol=0.05))
+#   @test all(isapprox.(sigmacurr,sigma_an;atol=0.05))
+# end

@@ -69,11 +69,18 @@ struct RecurrentNeuralNetwork{R}
   weight_matrix::Matrix{R}
   time_membrane::Vector{R}
   base_input::Vector{R}
-  sigma_noise::Matrix{R}
+  sigma_noise::Symmetric{R,Matrix{R}}
 end
 Base.Broadcast.broadcastable(x::RecurrentNeuralNetwork)=Ref(x)
+function n_neurons(rnn::RecurrentNeuralNetwork)
+  return size(rnn.weight_matrix,1)
+end
 function Base.ndims(rnn::RecurrentNeuralNetwork)
   return size(rnn.weight_matrix,1)
+end
+
+function hasnoise(rn::RecurrentNeuralNetwork{R}) where R
+  return tr(rn.sigma_noise) > 100.0*eps(R)
 end
 
 # generate weight matrix
@@ -144,13 +151,14 @@ end
 
 
 # default values
-function RecurrentNeuralNetwork(ne::I,ni::I) where I<:Integer
+function RecurrentNeuralNetwork(ne::Integer,ni::Integer;
+      sigma_noise::Union{Nothing,AbstractMatrix{<:Real}}=nothing)
     iofun_default=ReQuad(0.02)
     wmat = make_wmat(ne,ni)
     ntot=ne+ni
     input=input_base_default(ntot)
     taus=time_membrane_default(ne,ni)
-    sigma_noise=zeros(ntot,ntot)
+    sigma_noise=something(sigma_noise,Symmetric(zeros(ntot,ntot)))
     return RecurrentNeuralNetwork(iofun_default,wmat,taus,input,sigma_noise)
 end
 
@@ -271,7 +279,7 @@ function run_network_noise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},t_e
   u0=ioinv.(r_start,ntw)
   f(du,u,p,t) = du_nonoise!(du,u,ntw)
   σ_f(du,u,p,t) = copy!(du,ntw.sigma_noise)
-  prob = SDEProblem(f,σ_f,u0,(0.,t_end);noise_rate_prototype=zero(ntw.sigma_noise))
+  prob = SDEProblem(f,σ_f,u0,(0.,t_end);noise_rate_prototype=zero(Matrix(ntw.sigma_noise)))
   #solv =  solve(prob,EM();verbose=verbose,dt=stepsize)
   solv = solve(prob,EulerHeun();dt=stepsize)
   ret_u = hcat(solv.u...)
