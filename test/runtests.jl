@@ -30,7 +30,7 @@ end
        Jnum[i,:] =  Calculus.gradient( u -> veli(u,i), utest )
      end
      Jan=S.jacobian(utest,ntw)
-     @test all(isapprox.(Jnum,Jan;rtol=1E-4))
+     @test all(isapprox.(Jnum,Jan;rtol=1E-3))
 end
 
 # W=0 , mean is input current
