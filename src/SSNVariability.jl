@@ -150,16 +150,16 @@ function make_wmat(ne::I,ni::I; noautapses=true) where I<: Integer
 end
 
 
-# default values
+# constructor with default values
 function RecurrentNeuralNetwork(ne::Integer,ni::Integer;
-      sigma_noise::Union{Nothing,AbstractMatrix{<:Real}}=nothing)
-    iofun_default=ReQuad(0.02)
+      sigma_noise::Union{Nothing,AbstractMatrix{<:Real}}=nothing,
+      iofunction::IOFunction= ReQuad(0.02))
     wmat = make_wmat(ne,ni)
     ntot=ne+ni
     input=input_base_default(ntot)
     taus=time_membrane_default(ne,ni)
     sigma_noise=something(sigma_noise,Symmetric(zeros(ntot,ntot)))
-    return RecurrentNeuralNetwork(iofun_default,wmat,taus,input,sigma_noise)
+    return RecurrentNeuralNetwork(iofunction,wmat,taus,input,sigma_noise)
 end
 
 

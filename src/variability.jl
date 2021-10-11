@@ -70,7 +70,7 @@ end
 function dSigma!(dΣ::M,Σ::M,μ::V,
     ntw::RecurrentNeuralNetwork{R}) where {R<:Real,M<:Matrix{R},V<:Vector{R}}
   J=j_thingy(μ,diag(Σ),ntw)
-  dΣ .= ntw.sigma_noise .+ (J*Σ) .+ (Σ*J') 
+  dΣ .= sqrt.(ntw.sigma_noise) .+ (J*Σ) .+ (Σ*J') 
   return dΣ
 end
 
