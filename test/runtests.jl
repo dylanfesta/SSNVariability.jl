@@ -36,7 +36,7 @@ end
      @test all(isapprox.(Jnum,Jan;rtol=1E-3))
 end
 
-@testset "Find mean with variance from simulation" begin
+@testset "Find mean with `true` variance computed from simulation" begin
   ne,ni = 43,22
   ntot = ne+ni
   cov_noise_test=S.random_covariance_matrix(ntot,3.3)
