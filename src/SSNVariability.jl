@@ -68,7 +68,7 @@ struct RecurrentNeuralNetwork{R}
   iofun::IOFunction{R}
   weight_matrix::Matrix{R}
   time_membrane::Vector{R}
-  base_input::Vector{R}
+  input::Vector{R}
   sigma_noise::Symmetric{R,Matrix{R}}
 end
 Base.Broadcast.broadcastable(x::RecurrentNeuralNetwork)=Ref(x)
@@ -244,7 +244,7 @@ end
 function du_nonoise!(dest::V,u::V,
         ntw::RecurrentNeuralNetwork{R}) where {R<:Real,V<:Vector{R}}
   r = ntw.iofun.(u)
-  dest .= ntw.base_input .- u
+  dest .= ntw.input .- u
   BLAS.gemv!('N',1.,ntw.weight_matrix,r,1.,dest)
   return scalebytime!(dest,ntw)
 end
@@ -275,13 +275,14 @@ function run_network_noise_simple(ntw::RecurrentNeuralNetwork{R},
 end
 
 function run_network_noise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},t_end::Real;
-    verbose::Bool=false,stepsize=0.05) where R<:Real
-  n = n_neurons(ntw)  
+    stepsize=0.05) where R<:Real
   u0=ioinv.(r_start,ntw)
+  chol = let c=cholesky(ntw.sigma_noise)
+    Matrix(c.L)
+  end
   f(du,u,p,t) = du_nonoise!(du,u,ntw)
-  g(du,u,p,t) = (du .= 1.0)
-  fnoise = CorrelatedWienerProcess(Matrix(ntw.sigma_noise),0.0,zeros(n))
-  prob = SDEProblem(f,g,u0,(0.,t_end);noise=fnoise)
+  g(du,u,p,t) = (@. du = chol)
+  prob = SDEProblem(f,g,u0,(0.,t_end);noise_rate_prototype=similar(chol))
   solv = solve(prob,EM();dt=stepsize)
   ret_u = hcat(solv.u...)
   ret_r = iofun.(ret_u,ntw)
@@ -397,7 +398,7 @@ end
 function dmu!(ret::V,mu::V,sigma_diag::V,
     ntw::RecurrentNeuralNetwork{R}) where {R<:Real,V<:Vector{R}}
   ν = nu_fun(mu,sigma_diag,ntw.iofun)
-  ret .= ntw.base_input .- mu
+  ret .= ntw.input .- mu
   BLAS.gemv!('N',1.,ntw.weight_matrix,ν,1.,ret)
   return scalebytime!(ret,ntw)
 end
@@ -405,7 +406,7 @@ end
 function dSigma!(dΣ::M,Σ::M,μ::V,
     ntw::RecurrentNeuralNetwork{R}) where {R<:Real,M<:Matrix{R},V<:Vector{R}}
   J = j_thingy(μ,diag(Σ),ntw)
-  dΣ .= sqrt.(ntw.sigma_noise) .+ (J*Σ) .+ (Σ*J') 
+  dΣ .= ntw.sigma_noise .+ (J*Σ) .+ (Σ*J') 
   return dΣ
 end
 
@@ -435,7 +436,7 @@ end
 ## initial conditions
 
 function mustart_sigmastart(ntw::RecurrentNeuralNetwork{R}) where R
-  mustart = copy(ntw.base_input)
+  mustart = copy(ntw.input)
   if hasnoise(ntw)
     Tm = diagm(-inv.(ntw.time_membrane ))
     sigma_start = lyap(Tm,Matrix(ntw.sigma_noise))
