@@ -42,6 +42,18 @@ function iofun(source::Vector{R},io::IOFunction{R}) where R
   return iofun!(similar(source),source,io)
 end
 
+struct IOIdentity{R} <: IOFunction{R}
+  function IOIdentity()
+    return new{Float64}()
+  end
+end
+function (::IOIdentity{R})(x::R) where R
+  return x
+end
+ioinv(x::R,::IOIdentity{R}) where R<:Real = x 
+ioprime(x::R,::IOIdentity{R}) where R<:Real = 1.0
+
+
 struct ReLu{R} <: IOFunction{R}
   α::R
 end
@@ -377,8 +389,6 @@ function gamma_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReQuad)
   return gamma_fun2(mu,sigma_diag,io.α)
 end
 
-
-
 function j_thingy_old(mu::Vector{R},sigma_diag::Vector{R},
     ntw::RecurrentNeuralNetwork{R}) where R
   γ = gamma_fun(mu,sigma_diag,ntw.iofun)
@@ -446,5 +456,29 @@ function mustart_sigmastart(ntw::RecurrentNeuralNetwork{R}) where R
   end
   return mustart,sigma_start
 end
+
+# noise in a linear system
+# if S is noise covariance for dx = A x dt + noise 
+# then the covariance of x, called P , satisfies 0 = A P + P A' + S
+function cov_linear(A::Matrix{Float64},cov_noise::AbstractMatrix{Float64})
+  return lyap(A,cov_noise)
+end
+
+# dx = A x + h 
+# then  x_inf = - A^-1 * h
+function stable_point_linear(A::Matrix{Float64},h::Vector{Float64})
+  return -A\h
+end
+
+function mean_cov_linear_ntw(ntw::RecurrentNeuralNetwork{R}) where R
+  @assert typeof(ntw.iofun) <: IOIdentity
+  T = Diagonal(ntw.time_membrane)
+  A = T\(ntw.weight_matrix-I)
+  h = T\ntw.input
+  μ = stable_point_linear(A,h)
+  Σ = cov_linear(A,Matrix(ntw.sigma_noise))
+  return (μ,Σ)
+end
+
 
 end # module

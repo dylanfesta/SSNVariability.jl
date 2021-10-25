@@ -36,6 +36,32 @@ end
   @test all(isapprox.(Jnum,Jan;rtol=1E-3))
 end
 
+@testset "2D Linear model Vs analytic results" begin
+
+  ntw = let 
+    iofun=S.IOIdentity()
+    weight_matrix = [0.5 -0.5 ; 2.5 -0.1]
+    time_membrane = [ 0.8 , 0.4]
+    input = [10. , 6.0]
+    s1,s2,ρ = 1.0,0.3,0.5
+    sigma_noise = Symmetric([ s1  s1*s2*ρ ; s1*s2*ρ s2 ])
+    @assert isposdef(sigma_noise)
+    S.RecurrentNeuralNetwork(iofun,weight_matrix,time_membrane,input,sigma_noise)
+  end
+  mu_an,sigma_an = S.mean_cov_linear_ntw(ntw)
+
+  r_start = mu_an
+  dt = 10E-3
+  Ttot = 1000.0
+  t,_,ei=S.run_network_noise(ntw,r_start,Ttot;stepsize=dt)
+  sigma_num = cov(ei;dims=2)
+  mu_num = mean(ei;dims=2)[:]
+
+  @test all(isapprox.(mu_num,mu_an;atol=0.3))
+  @test all(isapprox.(sigma_num,sigma_an;atol=0.4))
+
+end
+
 @testset "Find mean with `true` variance computed from simulation" begin
   ne,ni = 43,22
   ntot = ne+ni
@@ -95,7 +121,7 @@ end
   @test all(isapprox.(sigma_an,sigma_num;atol=0.05))
 end
 
-@testset "Mean and covariance with non diagonal noise" begin
+@testset "Mean and covariance with non-diagonal noise" begin
   
   Ttot = 100.0
   dt = 0.05E-3
