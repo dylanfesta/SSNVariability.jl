@@ -420,6 +420,7 @@ function dSigma!(dΣ::M,Σ::M,μ::V,
   return dΣ
 end
 
+#=
 function dmu_step!(ret::V, mu::V,Σ::Matrix{R},δ::Real,
     ntw::RecurrentNeuralNetwork{R}) where {R<:Real,V<:Vector{R}}
   dmu!(ret,mu,diag(Σ),ntw)
@@ -442,6 +443,7 @@ function dmuSigma_step!(dest_mu::V,dest_sigma::M,μ::V,Σ::M,δ::Real,
   dmu_step!(dest_mu,μ,dest_sigma,δ,ntw)
   return nothing
 end
+=#
 
 ## initial conditions
 
@@ -464,8 +466,8 @@ function cov_linear(A::Matrix{Float64},cov_noise::AbstractMatrix{Float64})
   return lyap(A,cov_noise)
 end
 
-# dx = A x + h 
-# then  x_inf = - A^-1 * h
+# dx/dt = A x + h + noise
+# then  E[x(t)] = - A^-1 * h
 function stable_point_linear(A::Matrix{Float64},h::Vector{Float64})
   return -A\h
 end
