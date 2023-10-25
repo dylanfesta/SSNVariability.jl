@@ -558,37 +558,45 @@ end
 
 function a_fun02(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
   νn = nu_fun2(μ,diag(Σ),α)
-  return hcat([α.*νn for _ in 1:size(Σ,1)]...)
+  return [α*νn[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
 function a_fun01(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the network is nonlinear
   ν1 = nu_fun1(μ,diag(Σ),α)
-  return  hcat([α.*ν1 for _ in 1:size(Σ,1)]...)
+  return  [α*ν1[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
 function a_fun11(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
   νn = nu_fun1(μ,diag(Σ),α)
-  gamman = Σ.*gamma_fun1(μ,diag(Σ),α)
-  gamma_j_j_elements = [gamman[i, i] for i in 1:size(gamman, 1)] # gamma is square
-  gamma_j_j = hcat(fill(gamma_j_j_elements, size(gamman, 1))...)
+  γn = gamma_fun1(μ,diag(Σ),α)
+  #=
+  gamman = [Σ[i, j] * γn[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
+  gamma_j_j_elements = diag(gamman)
+  gamma_j_j = vcat(fill(gamma_j_j_elements', size(gamman,1))...)
   mat_sqrt_Σ = [sqrt(Σ[i, i] / Σ[j, j]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  return  α.*μ*νn' + α.*mat_sqrt_Σ*gamma_j_j
+  =#
+  return [α*μ[i]*νn[j] + α*sqrt(Σ[i, i] / Σ[j, j])*Σ[j, j] * γn[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
 function a_fun12(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
   νn = nu_fun2(μ,diag(Σ),α)
-  gamman = Σ.*gamma_fun2(μ,diag(Σ),α)
-  gamma_j_j_elements = [gamman[i, i] for i in 1:size(gamman, 1)] # gamma is square
-  gamma_j_j = hcat(fill(gamma_j_j_elements, size(gamman, 1))...)
+  γn = gamma_fun2(μ,diag(Σ),α)
+  #=
+  gamman = [Σ[i, j] * γn[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
+  gamma_j_j_elements = diag(gamman)
+  gamma_j_j = vcat(fill(gamma_j_j_elements', size(gamman,1))...)
   mat_sqrt_Σ = [sqrt(Σ[i, i] / Σ[j, j]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  return  α.*μ*νn' + α.*mat_sqrt_Σ*gamma_j_j
+  =#
+  return  [α*μ[i]*νn[j] + α*sqrt(Σ[i, i] / Σ[j, j])*Σ[j, j] * γn[j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
 function a_fun22(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
+  #=
   Σ_i_i_values = diag(Σ)
-  Σ_i_i_matrix = hcat([Σ_i_i_values for _ in 1:size(Σ,1)]...)
+  Σ_i_i_matrix = vcat(fill(Σ_i_i_values', size(Σ,1))...)' 
   mat_sqrt_2_Σ = [sqrt(Σ[i, i] * Σ[j, j]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  μ.*a_fun12(α,μ,Σ) + Σ_i_i_matrix * a_fun02(α,μ,Σ) + 2 .*mat_sqrt_2_Σ*a_fun11(α,μ,Σ)
+  =#
+  return [μ[i]*a_fun12(α,μ,Σ)[i,j] + Σ[i,i] * a_fun02(α,μ,Σ)[i,j] + 2 *sqrt(Σ[i, i] * Σ[j, j])*a_fun11(α,μ,Σ)[i,j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
 function a_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLu)
@@ -603,71 +611,92 @@ end
 
 function b_fun00(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
   nr=Normal()
-  return  α^2 .* [cdf(nr,μ[i] / Σ[i, i]) + cdf(nr,μ[j] / Σ[j, j]) - 1 for i in 1:size(Σ,1), j in 1:size(Σ,1)]
+  return  α^2 .* [cdf(nr,μ[i] / sqrt(Σ[i, i])) + cdf(nr,μ[j] / sqrt(Σ[j, j])) - 1 for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun01(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  
   nr=Normal()
+  #=
   Σ_j_j_elements = diag(Σ) # gamma is square
-  sqrt_Σ_j_j = (hcat([sqrt.(Σ_j_j_elements) for _ in 1:size(Σ,1)]...))'
-  return μ'.*b_fun00(α,μ,Σ) + α^2 .* sqrt_Σ_j_j * [pdf(nr,μ[j] / sqrt(Σ[j, j])) - pdf(nr,μ[i] / sqrt(Σ[i, i])) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
+  sqrt_Σ_j_j = vcat(fill(sqrt.(Σ_j_j_elements'), size(Σ,1))...)      
+  =#
+  return [μ[j]*b_fun00(α,μ,Σ)[i,j] + α^2 * sqrt(Σ[j,j]) *(pdf(nr,μ[j] / sqrt(Σ[j, j])) - pdf(nr,μ[i] / sqrt(Σ[i, i]))) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun02(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the network is nonlinear
   nr=Normal()
+  #=
   Σ_j_j_elements = diag(Σ) # gamma is square
-  sqrt_Σ_j_j = (hcat([sqrt.(Σ_j_j_elements) for _ in 1:size(Σ,1)]...))'
+  sqrt_Σ_j_j = vcat(fill(sqrt.(Σ_j_j_elements'), size(Σ,1))...)  
+  =#
   R_mat = [μ[j] + μ[i] * sqrt(Σ[j, j] / Σ[i, i]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  return  μ'.*b_fun01(α,μ,Σ) - sqrt_Σ_j_j * (α^2 .* pdf.(nr,μ./sqrt.(diag(Σ))).*R_mat - sqrt_Σ_j_j * b_fun00(α,μ,Σ))
+  return [μ[j]*b_fun01(α,μ,Σ)[i,j] - sqrt(Σ[j,j]) * (α^2 * pdf(nr,μ[i] / sqrt(Σ[i, i])) * R_mat[i,j] - sqrt(Σ[j, j]) * b_fun00(α,μ,Σ)[i,j])   for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun10(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the network is nonlinear
   nr=Normal()
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
-  return  μ.*b_fun00(α,μ,Σ) + Σ_i_i_matrix * (α^2 .* [pdf(nr,μ[i] / Σ[i, i]) - pdf(nr,μ[j] / Σ[j, j]) for i in 1:size(Σ,1), j in 1:size(Σ,1)])
+  =#
+  return [μ[i]*b_fun00(α,μ,Σ)[i,j] + sqrt(Σ[i,i]) * (α^2 * (pdf(nr,μ[i] / sqrt(Σ[i, i])) - pdf(nr,μ[j] / sqrt(Σ[j, j])))) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun11(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the network is nonlinear
   nr=Normal()
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
+  =#
   R_mat = [μ[j] + μ[i] * sqrt(Σ[j, j] / Σ[i, i]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  return  μ.*b_fun00(α,μ,Σ) + Σ_i_i_matrix * (α^2 .* pdf.(nr,μ./sqrt.(diag(Σ))).*R_mat - Σ_i_i_matrix'*b_fun00(α,μ,Σ))
+  return  [μ[i]*b_fun01(α,μ,Σ)[i,j] + sqrt(Σ[i,i]) * (α^2 * pdf(nr,μ[i] / sqrt(Σ[i, i])) * R_mat[i,j] - sqrt(Σ[j,j]*b_fun00(α,μ,Σ)[i,j])) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun12(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the network is nonlinear
   nr=Normal()
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
+  =#
   R_mat = [μ[j] + μ[i] * sqrt(Σ[j, j] / Σ[i, i]) for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
-  return  μ.*b_fun00(α,μ,Σ) + Σ_i_i_matrix * (α^2 .* pdf.(nr,μ./sqrt.(diag(Σ))).*R_mat^2 - Σ_i_i_matrix'*b_fun01(α,μ,Σ))
+  return  [μ[i]*b_fun02(α,μ,Σ)[i,j] + sqrt(Σ[i,i]) * (α^2 .* pdf(nr,μ[i] / sqrt(Σ[i, i])) * (R_mat[i,j])^2 - 2*sqrt(Σ[j,j]*b_fun01(α,μ,Σ)[i,j])) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLu)
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
-  return μ .* b_fun01(io.α,μ,Σ) - sqrt.(Σ_i_i_matrix*Σ_i_i_matrix') * b_fun00(io.α,μ,Σ)
+  =#
+  return [μ[i]*b_fun01(io.α,μ,Σ)[i,j] - sqrt(Σ[i,i]*Σ[j,j]) * b_fun00(io.α,μ,Σ)[i,j] for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 function b_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReQuad)
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
-  return μ .* b_fun12(io.α,μ,Σ) + Σ_i_i_matrix * b_fun02(io.α,μ,Σ) - sqrt.(Σ_i_i_matrix*Σ_i_i_matrix') * b_fun11(io.α,μ,Σ)
+  =#
+  return [μ[i]*b_fun12(io.α,μ,Σ)[i,j] + Σ[i,i]*b_fun02(io.α,μ,Σ)[i,j] - 2 * sqrt(Σ[i,i]*Σ[j,j]) * b_fun11(io.α,μ,Σ)[i,j] for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
 # Build the rate covariance
 
 function coef_ansatz(μ::Vector{<:Real},Σ::Matrix{<:Real},ntw::RecurrentNeuralNetwork{<:Real})
+  #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
+  =#
   B = b_fun(μ,Σ,ntw.iofun)
   A = a_fun(μ,Σ,ntw.iofun)
   γ = gamma_fun(μ,diag(Σ),ntw.iofun)
   ν = nu_fun(μ,diag(Σ),ntw.iofun)
+  Λ_pos = [- ν[i]* ν[j] + A[i,j] for i in 1:size(Σ,1), j in 1:size(Σ,1)]
+  Λ_neg = [- ν[i]* ν[j] + B[i,j] for i in 1:size(Σ,1), j in 1:size(Σ,1)]
+  #=
   Λ_pos = - ν .* ν' + A
   Λ_neg = - ν .* ν' + B
   α_mat_1 = (γ.*Σ_i_i_matrix).*(γ'.*Σ_i_i_matrix')
+    =#
+  α_mat_1 = [(γ[i]* sqrt(Σ[i,i])) * (γ[j]* sqrt(Σ[j,j])) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
   α_mat_2 = (Λ_pos + Λ_neg)./2
   α_mat_3 = (Λ_pos - Λ_neg)./2 - α_mat_1
   return α_mat_1,α_mat_2,α_mat_3
@@ -676,7 +705,7 @@ end
 function rate_variance(μ::Vector{<:Real},Σ::Matrix{<:Real},ntw::RecurrentNeuralNetwork{<:Real})
   α_mat_1,α_mat_2,α_mat_3 = coef_ansatz(μ,Σ,ntw)
   C = [Σ[i, j] / sqrt(Σ[i, i] * Σ[j, j]) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
-  return α_mat_1.*C + α_mat_2.*C.^2 + α_mat_3.*C.^3
+  return α_mat_1.*C + α_mat_2.*(C.^2) + α_mat_3.*(C.^3)
 end
 
 function run_full_integration!(ntw::RecurrentNeuralNetwork{R}, N::Int, atol::Float64,dt::Float64) where R
