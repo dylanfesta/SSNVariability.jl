@@ -57,7 +57,7 @@ jobs:
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
             using SSNVariability
-            DocMeta.setdocmeta!(HawkesSimulator, :DocTestSetup, :(using SSNVariability); recursive=true)
+            DocMeta.setdocmeta!(SSNVariability, :DocTestSetup, :(using SSNVariability); recursive=true)
             doctest(SSNVariability)'
       - run: julia --project=docs docs/make.jl
         env:
