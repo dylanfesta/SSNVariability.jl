@@ -38,8 +38,8 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info
-          env:
-            CODECOV_TOKEN='dea27b9c-fba9-4f0c-b211-907c126124b5'
+          #env:
+          #  CODECOV_TOKEN='dea27b9c-fba9-4f0c-b211-907c126124b5'
   # docs:
   #   name: Documentation
   #   runs-on: ubuntu-latest
@@ -47,7 +47,7 @@ jobs:
   #     - uses: actions/checkout@v2
   #     - uses: julia-actions/setup-julia@v1
   #       with:
-  #         version: '1.6'
+  #         version: '1.9'
   #     - run: |
   #         julia --project=docs -e '
   #           using Pkg
