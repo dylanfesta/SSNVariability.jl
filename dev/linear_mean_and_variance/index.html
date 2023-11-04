@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Mean and variance in a linear 2D system · SSNVariability.jl</title><meta name="title" content="Mean and variance in a linear 2D system · SSNVariability.jl"/><meta property="og:title" content="Mean and variance in a linear 2D system · SSNVariability.jl"/><meta property="twitter:title" content="Mean and variance in a linear 2D system · SSNVariability.jl"/><meta name="description" content="Documentation for SSNVariability.jl."/><meta property="og:description" content="Documentation for SSNVariability.jl."/><meta property="twitter:description" content="Documentation for SSNVariability.jl."/><meta property="og:url" content="https://dylanfesta.github.io/SSNVariability.jl/linear_mean_and_variance/"/><meta property="twitter:url" content="https://dylanfesta.github.io/SSNVariability.jl/linear_mean_and_variance/"/><link rel="canonical" href="https://dylanfesta.github.io/SSNVariability.jl/linear_mean_and_variance/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">SSNVariability.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Mean and variance in a linear 2D system</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Mean and variance in a linear 2D system</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/dylanfesta/SSNVariability.jl/blob/dev/examples/linear_mean_and_variance.jl#L" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Mean-and-variance-in-a-linear-2D-system"><a class="docs-heading-anchor" href="#Mean-and-variance-in-a-linear-2D-system">Mean and variance in a linear 2D system</a><a id="Mean-and-variance-in-a-linear-2D-system-1"></a><a class="docs-heading-anchor-permalink" href="#Mean-and-variance-in-a-linear-2D-system" title="Permalink"></a></h1><p>Here I don&#39;t make use of the algorithm by Hennequin et al, but simply show how to capture mean and variance analytically in a linear system.</p><p>The main sources are:</p><h1 id="Initialization"><a class="docs-heading-anchor" href="#Initialization">Initialization</a><a id="Initialization-1"></a><a class="docs-heading-anchor-permalink" href="#Initialization" title="Permalink"></a></h1><pre><code class="language-julia hljs">using LinearAlgebra,Statistics,StatsBase,Distributions
+using Plots,NamedColors,LaTeXStrings ; theme(:default) ; gr()
+
+using InvertedIndices
+using Random
+Random.seed!(0)
+
+using SSNVariability; const global S = SSNVariability
+
+#= ##  Step 1: create a linear system
+
+For simplicity I just consider a 2D model with one excitatory and one
+inhibitory unit.
+
+I simulate a dynamics of the form:
+```math
+\frac{d\, r(t)}{dt} = - r + W \, r + h
+```
+where $r(t)$ and $h$ are 2D vectors. The results however work for any linear system.
+=#
+
+ntw = let
+  iofun=S.ReLU(1.0)
+  weight_matrix = 0.2 .* [2.0 -0.4 ;
+                          4. -0.1]
+  time_membrane = [ 0.1 , 0.05]
+  input = [25. , 15.0]
+  s1,s2,ρ = 6.0,3.0,0.1 # variance and correlation of noise
+  sigma_noise = Symmetric([ s1  s1*s2*ρ ; s1*s2*ρ s2 ])
+  @assert isposdef(sigma_noise)
+  S.RecurrentNeuralNetwork(iofun,weight_matrix,time_membrane,input,sigma_noise)
+end;</code></pre><p>This function comutes mean and covariance analytically</p><pre><code class="language-julia hljs">mu_an,sigma_an = S.mean_cov_linear_ntw(ntw);
+@info mu_an</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: [35.946745562130175, 42.89940828402367]</code></pre><h2 id="Step-2:-simulate-the-system-and-compare-the-results"><a class="docs-heading-anchor" href="#Step-2:-simulate-the-system-and-compare-the-results">Step 2: simulate the system and compare the results</a><a id="Step-2:-simulate-the-system-and-compare-the-results-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-simulate-the-system-and-compare-the-results" title="Permalink"></a></h2><p>Now we simulate the system and compare the results. It will work for pretty much any initial condition.</p><pre><code class="language-julia hljs">r_start = mu_an .* 2.0 .* rand(2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
+ 29.16715130969322
+  5.881150613044189</code></pre><p>N.B. the ODE solver determines the actual time step this is just the timestep used for <em>saving</em> the result</p><pre><code class="language-julia hljs">dt_save = 0.01
+Ttot = 200.0
+t,_,ei=S.run_network_noise(ntw,r_start,Ttot;stepsize=dt_save)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.060000000000000005, 0.07, 0.08, 0.09  …  199.91999999996315, 199.92999999996314, 199.93999999996313, 199.94999999996313, 199.95999999996312, 199.9699999999631, 199.9799999999631, 199.9899999999631, 199.99999999996308, 200.0], [29.16715130969322 29.890618579494237 … 35.5954678380804 35.595439972816706; 5.881150613044189 12.102738746464997 … 43.00428918645259 43.00428513130243], [29.16715130969322 29.890618579494237 … 35.5954678380804 35.595439972816706; 5.881150613044189 12.102738746464997 … 43.00428918645259 43.00428513130243])</code></pre><p>I will consider the first half as warmup</p><pre><code class="language-julia hljs">idx_t_keep =findfirst(&gt;(Ttot/2),t) : length(t)
+ei_less = view(ei,:,idx_t_keep)
+sigma_num = cov(ei_less;dims=2)
+mu_num = mean(ei_less;dims=2)[:]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
+ 35.94671007371747
+ 42.90445412853861</code></pre><p>Plot rate Vs analytic</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+  hline!(plt,[mu_an[1]],label=L&quot;analytic $\mu_{\mathrm{exc}}$&quot;,
+    color=colorant&quot;dark blue&quot;,linestyle=:dash)
+  plot!(plt,t,ei[1,:],label=L&quot;numeric $r_{\mathrm{exc}}(t)$&quot;,color=:blue)
+  ylims!(plt,10,60)
+  xlims!(plt,0,10)
+  hline!(plt,[mu_an[2]],label=L&quot;analytic $\mu_{\mathrm{inh}}$&quot;,
+    color=colorant&quot;dark red&quot;,linestyle=:dash)
+  plot!(plt,t,ei[2,:],label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red)
+end</code></pre><img src="91df1cef.svg" alt="Example block output"/><p>Plot distribution Vs analytic for excitatory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+  histogram!(plt,ei_less[1,:];
+    label=L&quot;numeric $r_{\mathrm{exc}}(t)$&quot;,color=:blue,
+    alpha=0.5,nbins=100,normalize=:pdf)
+  mu_e_an = mu_an[1]
+  sigma_e_an = sqrt(sigma_an[1,1])
+  xs = range(mu_e_an - 4.0*sigma_e_an,stop=mu_e_an + 4.0*sigma_e_an,length=100)
+  ys = pdf.(Normal(mu_e_an,sigma_e_an),xs)
+  plot!(plt,xs,ys;
+    label=L&quot;analytic $r_{\mathrm{exc}}(t)$&quot;,
+    color=colorant&quot;dark blue&quot;,linestyle=:dash,
+    linewidth=3)
+  xlabel!(plt,&quot;rate (Hz)&quot;)
+  ylabel!(plt,&quot;probability density&quot;)
+  plt
+end</code></pre><img src="03d4ca32.svg" alt="Example block output"/><p>same for inhibitory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+  histogram!(plt,ei_less[2,:];
+    label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red,
+    alpha=0.5,nbins=100,normalize=:pdf)
+  mu_i_an = mu_an[2] # change to the mean of inhibitory units
+  sigma_i_an = sqrt(sigma_an[2,2]) # change to the standard deviation of inhibitory units
+  xs = range(mu_i_an - 4.0*sigma_i_an,stop=mu_i_an + 4.0*sigma_i_an,length=100)
+  ys = pdf.(Normal(mu_i_an,sigma_i_an),xs)
+  plot!(plt,xs,ys;
+    label=L&quot;analytic $r_{\mathrm{inh}}(t)$&quot;,
+    color=colorant&quot;dark red&quot;,linestyle=:dash,
+    linewidth=3)
+  xlabel!(plt,&quot;rate (Hz)&quot;)
+  ylabel!(plt,&quot;probability density&quot;)
+  plt
+end</code></pre><img src="e49ca0f9.svg" alt="Example block output"/><p>Now, the correlation between the two</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+  k=10
+  scatter(ei_less[1,1:k:end],ei_less[2,1:k:end];
+    label=L&quot;numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$&quot;,
+    color=:black,alpha=0.5)
+end</code></pre><img src="742be05f.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Saturday 4 November 2023 14:35">Saturday 4 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
