@@ -6,7 +6,7 @@ using Test
 Random.seed!(0)
 
 @testset "input-output functions" begin
-  g1=S.ReLu(1.2)
+  g1=S.ReLU(1.2)
   @test g1(3.3) ≈ 3.3*1.2
   g2=S.ReQuad(4.4)
   @test g2(3.3) ≈ 3.3*3.3*4.4

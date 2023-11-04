@@ -54,16 +54,16 @@ ioinv(x::R,::IOIdentity{R}) where R<:Real = x
 ioprime(x::R,::IOIdentity{R}) where R<:Real = 1.0
 
 
-struct ReLu{R} <: IOFunction{R}
+struct ReLU{R} <: IOFunction{R}
   α::R
 end
 
-function (g::ReLu)(x::Real)
+function (g::ReLU)(x::Real)
   re = x < 0 ? zero(x) : g.α*x
   return re
 end
-ioinv(x::R,g::ReLu{R}) where R<:Real = x < zero(R) ? zero(R) : x/g.α
-ioprime(x::R,g::ReLu{R}) where R<:Real = x < zero(R) ? zero(R) : g.α
+ioinv(x::R,g::ReLU{R}) where R<:Real = x < zero(R) ? zero(R) : x/g.α
+ioprime(x::R,g::ReLU{R}) where R<:Real = x < zero(R) ? zero(R) : g.α
 
 struct ReQuad{R} <:IOFunction{R}
   α::R
@@ -382,7 +382,7 @@ function nu_fun2(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
     )
 end
 
-function nu_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReLu)
+function nu_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReLU)
   return nu_fun1(mu,sigma_diag,io.α)
 end
 function nu_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReQuad)
@@ -399,7 +399,7 @@ function gamma_fun2(mu::Vector{<:Real},sigma_diag::Vector{<:Real},α::Real)
     mu*cdf(nr,mu/sqrt(sigma_diag)) + 
     sqrt(sigma_diag)*pdf(nr,mu/sqrt(sigma_diag)))
 end
-function gamma_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReLu)
+function gamma_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReLU)
   return gamma_fun1(mu,sigma_diag,io.α)
 end
 function gamma_fun(mu::Vector{<:Real},sigma_diag::Vector{<:Real},io::ReQuad)
@@ -615,7 +615,7 @@ function a_fun22(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})
   return [μ[i]*a_fun12(α,μ,Σ)[i,j] + Σ[i,i] * a_fun02(α,μ,Σ)[i,j] + 2 *sqrt(Σ[i, i] * Σ[j, j])*a_fun11(α,μ,Σ)[i,j] for i in 1:size(Σ, 1), j in 1:size(Σ, 1)]
 end
 
-function a_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLu)
+function a_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLU)
   return a_fun11(io.α,μ,Σ)
 end
 
@@ -678,7 +678,7 @@ function b_fun12(α::Real,μ::Vector{<:Real},Σ::Matrix{<:Real})  #Used when the
   return  [μ[i]*b_fun02(α,μ,Σ)[i,j] + sqrt(Σ[i,i]) * (α^2 .* pdf(nr,μ[i] / sqrt(Σ[i, i])) * (R_mat[i,j])^2 - 2*sqrt(Σ[j,j]*b_fun01(α,μ,Σ)[i,j])) for i in 1:size(Σ,1), j in 1:size(Σ,1)]
 end
 
-function b_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLu)
+function b_fun(μ::Vector{<:Real},Σ::Matrix{<:Real},io::ReLU)
   #=
   Σ_i_i_values = diag(Σ)
   Σ_i_i_matrix = (hcat([sqrt.(Σ_i_i_values) for _ in 1:size(Σ,1)]...))
