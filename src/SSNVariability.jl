@@ -529,9 +529,15 @@ function stable_point_linear(A::Matrix{Float64},h::Vector{Float64})
 end
 
 function mean_cov_linear_ntw(ntw::RecurrentNeuralNetwork{R}) where R
-  @assert typeof(ntw.iofun) <: IOIdentity
+  if typeof(ntw.iofun) <: IOIdentity
+    W_eff = ntw.weight_matrix - I
+  elseif typeof(ntw.iofun) <: ReLU
+    W_eff = (ntw.weight_matrix .* ntw.iofun.α) - I
+  else
+    error("Network is not linear")
+  end
   T = Diagonal(ntw.time_membrane)
-  A = T\(ntw.weight_matrix-I)
+  A = T\W_eff
   h = T\ntw.input
   μ = stable_point_linear(A,h)
   Σ = cov_linear(A,Matrix(ntw.sigma_noise))

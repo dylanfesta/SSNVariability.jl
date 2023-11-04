@@ -1,13 +1,17 @@
-#=
+```@meta
+EditURL = "../../examples/linear_mean_and_variance.jl"
+```
+
 # Mean and variance in a linear 2D system
 
 Here I don't make use of the algorithm by Hennequin et al, but simply show how to capture
-mean and variance analytically in a linear system. 
+mean and variance analytically in a linear system.
 
-The main sources are: 
+The main sources are:
 
 # Initialization
-=#
+
+````@example linear_mean_and_variance
 using LinearAlgebra,Statistics,StatsBase,Distributions
 using Plots,NamedColors,LaTeXStrings ; theme(:default) ; gr()
 
@@ -17,22 +21,21 @@ Random.seed!(0)
 
 using SSNVariability; const global S = SSNVariability
 
-## #src
 #= ##  Step 1: create a linear system
 
-For simplicity I just consider a 2D model with one excitatory and one 
-inhibitory unit. 
+For simplicity I just consider a 2D model with one excitatory and one
+inhibitory unit.
 
 I simulate a dynamics of the form:
 ```math
 \frac{d\, r(t)}{dt} = - r + W \, r + h
 ```
-where $r(t)$ and $h$ are 2D vectors. The results however work for any linear system. 
+where $r(t)$ and $h$ are 2D vectors. The results however work for any linear system.
 =#
 
-ntw = let 
+ntw = let
   iofun=S.ReLU(1.0)
-  weight_matrix = 0.2 .* [2.0 -0.4 ; 
+  weight_matrix = 0.2 .* [2.0 -0.4 ;
                           4. -0.1]
   time_membrane = [ 0.1 , 0.05]
   input = [25. , 15.0]
@@ -41,31 +44,48 @@ ntw = let
   @assert isposdef(sigma_noise)
   S.RecurrentNeuralNetwork(iofun,weight_matrix,time_membrane,input,sigma_noise)
 end;
+nothing #hide
+````
 
-# This function comutes mean and covariance analytically
+This function comutes mean and covariance analytically
+
+````@example linear_mean_and_variance
 mu_an,sigma_an = S.mean_cov_linear_ntw(ntw);
 @info mu_an
-## #src
-# ## Step 2: simulate the system and compare the results
-# Now we simulate the system and compare the results.
-# It will work for pretty much any initial condition.
-r_start = mu_an .* 2.0 .* rand(2)
+````
 
-# N.B. the ODE solver determines the actual time step
-# this is just the timestep used for *saving* the result 
+## Step 2: simulate the system and compare the results
+Now we simulate the system and compare the results.
+It will work for pretty much any initial condition.
+
+````@example linear_mean_and_variance
+r_start = mu_an .* 2.0 .* rand(2)
+````
+
+N.B. the ODE solver determines the actual time step
+this is just the timestep used for *saving* the result
+
+````@example linear_mean_and_variance
 dt_save = 0.01
 Ttot = 200.0
 t,_,ei=S.run_network_noise(ntw,r_start,Ttot;stepsize=dt_save)
-# I will consider the first half as warmup
+````
+
+I will consider the first half as warmup
+
+````@example linear_mean_and_variance
 idx_t_keep =findfirst(>(Ttot/2),t) : length(t)
 ei_less = view(ei,:,idx_t_keep)
 sigma_num = cov(ei_less;dims=2)
 mu_num = mean(ei_less;dims=2)[:]
+````
 
-# Plot rate Vs analytic
+Plot rate Vs analytic
+
+````@example linear_mean_and_variance
 theplot = let plt=plot()
   hline!(plt,[mu_an[1]],label=L"analytic $\mu_{\mathrm{exc}}$",
-    color=colorant"dark blue",linestyle=:dash) 
+    color=colorant"dark blue",linestyle=:dash)
   plot!(plt,t,ei[1,:],label=L"numeric $r_{\mathrm{exc}}(t)$",color=:blue)
   ylims!(plt,10,60)
   xlims!(plt,0,10)
@@ -73,9 +93,11 @@ theplot = let plt=plot()
     color=colorant"dark red",linestyle=:dash)
   plot!(plt,t,ei[2,:],label=L"numeric $r_{\mathrm{inh}}(t)$",color=:red)
 end
+````
 
-# Plot distribution Vs analytic for excitatory units
+Plot distribution Vs analytic for excitatory units
 
+````@example linear_mean_and_variance
 theplot = let plt=plot()
   histogram!(plt,ei_less[1,:];
     label=L"numeric $r_{\mathrm{exc}}(t)$",color=:blue,
@@ -92,9 +114,11 @@ theplot = let plt=plot()
   ylabel!(plt,"probability density")
   plt
 end
+````
 
-# same for inhibitory units
+same for inhibitory units
 
+````@example linear_mean_and_variance
 theplot = let plt=plot()
   histogram!(plt,ei_less[2,:];
     label=L"numeric $r_{\mathrm{inh}}(t)$",color=:red,
@@ -111,17 +135,20 @@ theplot = let plt=plot()
   ylabel!(plt,"probability density")
   plt
 end
+````
 
-# Now, the correlation between the two
+Now, the correlation between the two
 
+````@example linear_mean_and_variance
 theplot = let plt=plot()
   k=10
   scatter(ei_less[1,1:k:end],ei_less[2,1:k:end];
     label=L"numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$",
     color=:black,alpha=0.5)
 end
+````
 
+---
 
-## publish in documentation #src
-thisfile = joinpath(splitpath(@__FILE__)[end-1:end]...) #src
-using Literate; Literate.markdown(thisfile,"docs/src";documenter=true,repo_root_url="https://github.com/dylanfesta/SSNVariability.jl/blob/dev") #src
+*This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+
