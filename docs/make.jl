@@ -1,5 +1,9 @@
 using SSNVariability
 using Documenter
+using LinearAlgebra,Statistics,StatsBase,Distributions
+using Plots,NamedColors,LaTeXStrings
+using InvertedIndices
+using Random
 
 makedocs(;
     modules=[SSNVariability],
