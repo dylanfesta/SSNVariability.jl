@@ -4,7 +4,10 @@ CurrentModule = SSNVariability
 
 # SSNVariability
 
-Nothing to see here!
+[![](https://img.shields.io/static/v1?logo=GitHub&label=Open%20on%20GitHub&message=SSNVariability.jl&color=blue)](https://github.com/dylanfesta/SSNVariability.jl)
+
+:warning: :construction: Work in progress :construction:  
+*see example section for usage*
 
 ## Examples
 

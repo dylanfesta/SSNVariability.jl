@@ -95,6 +95,8 @@ theplot = let plt=plot()
 end
 ````
 
+### Single unit distribution
+
 Plot distribution Vs analytic for excitatory units
 
 ````@example linear_mean_and_variance
@@ -137,7 +139,9 @@ theplot = let plt=plot()
 end
 ````
 
-Now, the correlation between the two
+### Bivariate distribution
+
+Now, I consider the correlation between excitatory and inhibitory units.
 
 ````@example linear_mean_and_variance
 theplot = let plt=plot()
@@ -208,6 +212,54 @@ theplot = let plt=plot()
   # mean as a big point
   scatter!(plt,[mu_an[1]],[mu_an[2]],label="",
     color=colorant"green",marker=:circle,markersize=8)
+end
+````
+
+### Covariance density in time
+
+Finally, I show the covariance density in time,
+once again comparing analytic and numeric.
+
+````@example linear_mean_and_variance
+function compute_covariance_density(X::AbstractVector{R},Y::AbstractVector{R},nsteps::Integer) where R
+  @assert length(X) == length(Y) "vector must have same length"
+  # forward shift
+  ret = Vector{Float64}(undef,2*nsteps-1)
+  mean_x = mean(X)
+  mean_y = mean(Y)
+  ndt_tot = length(X)
+  binned_sh = similar(X)
+````
+
+0 and forward
+
+````@example linear_mean_and_variance
+  @simd for k in 0:nsteps-1
+    circshift!(binned_sh,Y,-k)
+    ret[nsteps-1+k+1] = dot(X,binned_sh)
+  end
+````
+
+backward shift
+
+````@example linear_mean_and_variance
+  @simd for k in 1:nsteps-1
+    circshift!(binned_sh,Y,k)
+    ret[nsteps-k] = dot(X,binned_sh)
+  end
+  @. ret = (ret /ndt_tot) - mean_x*mean_y
+end
+
+
+theplot = let ncov = 500
+  _times = range(start=-dt_save*ncov,stop=dt_save*ncov,length=2*ncov-1)
+  cov_ei = compute_covariance_density(ei_less[1,:],ei_less[2,:],500)
+  cov_ei ./= dt_save^2
+  plt=plot()
+  plot!(plt,_times,cov_ei;
+    label="numeric",
+    color=:black,linewidth=3,alpha=0.5,
+    xlabel="time (s)",ylabel="covariance exc vs inh")
 end
 ````
 
