@@ -36,7 +36,7 @@ ntw = let
                           4. -0.1]
   time_membrane = [ 0.1 , 0.05]
   input = [25. , 15.0]
-  s1,s2,ρ = 6.0,3.0,0.1 # variance and correlation of noise
+  s1,s2,ρ = 6.0,3.0,0.15 # variance and correlation of noise
   sigma_noise = Symmetric([ s1  s1*s2*ρ ; s1*s2*ρ s2 ])
   @assert isposdef(sigma_noise)
   S.RecurrentNeuralNetwork(iofun,weight_matrix,time_membrane,input,sigma_noise)
@@ -93,6 +93,7 @@ theplot = let plt=plot()
   plt
 end
 
+## #src
 # same for inhibitory units
 
 theplot = let plt=plot()
@@ -112,6 +113,7 @@ theplot = let plt=plot()
   plt
 end
 
+## #src
 # Now, the correlation between the two
 
 theplot = let plt=plot()
@@ -121,6 +123,70 @@ theplot = let plt=plot()
     color=:black,alpha=0.5)
 end
 
+## #src
+
+#= To compare this with analytic, we can print the analytic bivariate distribution
+as a series of ellypses. Code inspired to a blog post by "David Gold" with Python Code
+reinterpreted by chatGPT4 and debugged by me.
+=#
+
+function plot_bivariate_quantile_ellipse(mean::Vector{Float64}, covariance::Matrix{Float64}, 
+    plot_quantile::Float64 ; npoints::Int64=100)
+  ## Validate input dimensions
+  @assert length(mean) == 2 "Mean must be a 2-element vector"
+  @assert size(covariance) == (2, 2) "Covariance must be a 2x2 matrix"
+  @assert plot_quantile > 0 && plot_quantile < 1 "Quantile must be between 0 and 1"
+  
+  ## Calculate quantile of chi-squared distribution with 2 degrees of freedom
+  chisq_val = quantile(Chisq(2), plot_quantile)
+  ## Eigen decomposition
+  (Eval, Evec) = eigen(covariance)
+  ## Calculate radii of the ellipse
+  x_radius = sqrt(chisq_val * Eval[1])
+  y_radius = sqrt(chisq_val * Eval[2])
+  x_vec= [1 ; 0] # vector along x-axis
+  ## Rotation angle from the eigenvector
+  cosrotation = -dot(x_vec,Evec[:,2])/(norm(x_vec)*norm(Evec[:,2])) 
+  rotation =pi/2-acos(cosrotation)
+  ## Rotation matrix
+  R = [cos(rotation) -sin(rotation); sin(rotation) cos(rotation)]
+  ## Parametric equations of the ellipse before rotation
+  theta = range(0, 2*pi, length=npoints)
+  x_ellipse = x_radius * cos.(theta)
+  y_ellipse = y_radius * sin.(theta)
+  ## Rotate and translate the ellipse
+  rotated_coords = R * [x_ellipse y_ellipse]'
+  x_plot = rotated_coords[1, :] .+ mean[1]
+  y_plot = rotated_coords[2, :] .+ mean[2]
+  return x_plot, y_plot
+end
+
+## #src
+
+
+theplot = let plt=plot()
+  k=10
+  scatter!(plt,ei_less[1,1:k:end],ei_less[2,1:k:end];
+    label=L"numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$",
+    color=:black,alpha=0.5)
+  ## 50% quantile
+  (xell,yell) = plot_bivariate_quantile_ellipse(mu_an,sigma_an,0.5)
+  plot!(plt,xell,yell;
+    label="analytic 50% quantile",
+    color=colorant"forest green",
+    linewidth=3, alpha=0.5)
+  ## 95% quantile
+  (xell,yell) = plot_bivariate_quantile_ellipse(mu_an,sigma_an,0.95)
+  plot!(plt,xell,yell;
+    label="analytic 95% quantile",
+    color=colorant"forest green",
+    linewidth=3,alpha=0.5)
+  xlabel!(plt,"rate exc (Hz)")
+  ylabel!(plt,"rate inh (Hz)")
+  ## mean as a big point
+  scatter!(plt,[mu_an[1]],[mu_an[2]],label="",
+    color=colorant"green",marker=:circle,markersize=8)
+end
 
 ## publish in documentation #src
 thisfile = joinpath(splitpath(@__FILE__)[end-1:end]...) #src
