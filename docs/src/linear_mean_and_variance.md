@@ -229,20 +229,12 @@ function compute_covariance_density(X::AbstractVector{R},Y::AbstractVector{R},ns
   mean_y = mean(Y)
   ndt_tot = length(X)
   binned_sh = similar(X)
-````
-
-0 and forward
-
-````@example linear_mean_and_variance
+  # 0 and forward
   @simd for k in 0:nsteps-1
     circshift!(binned_sh,Y,-k)
     ret[nsteps-1+k+1] = dot(X,binned_sh)
   end
-````
-
-backward shift
-
-````@example linear_mean_and_variance
+  # backward shift
   @simd for k in 1:nsteps-1
     circshift!(binned_sh,Y,k)
     ret[nsteps-k] = dot(X,binned_sh)
