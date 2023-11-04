@@ -26,7 +26,7 @@ ntw = let
                           4. -0.1]
   time_membrane = [ 0.1 , 0.05]
   input = [25. , 15.0]
-  s1,s2,ρ = 6.0,3.0,0.1 # variance and correlation of noise
+  s1,s2,ρ = 6.0,3.0,0.15 # variance and correlation of noise
   sigma_noise = Symmetric([ s1  s1*s2*ρ ; s1*s2*ρ s2 ])
   @assert isposdef(sigma_noise)
   S.RecurrentNeuralNetwork(iofun,weight_matrix,time_membrane,input,sigma_noise)
@@ -35,12 +35,12 @@ end;</code></pre><p>This function comutes mean and covariance analytically</p><p
  29.16715130969322
   5.881150613044189</code></pre><p>N.B. the ODE solver determines the actual time step this is just the timestep used for <em>saving</em> the result</p><pre><code class="language-julia hljs">dt_save = 0.01
 Ttot = 200.0
-t,_,ei=S.run_network_noise(ntw,r_start,Ttot;stepsize=dt_save)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.060000000000000005, 0.07, 0.08, 0.09  …  199.91999999996315, 199.92999999996314, 199.93999999996313, 199.94999999996313, 199.95999999996312, 199.9699999999631, 199.9799999999631, 199.9899999999631, 199.99999999996308, 200.0], [29.16715130969322 29.890618579494237 … 35.5954678380804 35.595439972816706; 5.881150613044189 12.102738746464997 … 43.00428918645259 43.00428513130243], [29.16715130969322 29.890618579494237 … 35.5954678380804 35.595439972816706; 5.881150613044189 12.102738746464997 … 43.00428918645259 43.00428513130243])</code></pre><p>I will consider the first half as warmup</p><pre><code class="language-julia hljs">idx_t_keep =findfirst(&gt;(Ttot/2),t) : length(t)
+t,_,ei=S.run_network_noise(ntw,r_start,Ttot;stepsize=dt_save)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.060000000000000005, 0.07, 0.08, 0.09  …  199.91999999996315, 199.92999999996314, 199.93999999996313, 199.94999999996313, 199.95999999996312, 199.9699999999631, 199.9799999999631, 199.9899999999631, 199.99999999996308, 200.0], [29.16715130969322 29.890618579494237 … 35.594726804096204 35.59469893883525; 5.881150613044189 12.143095646216349 … 42.91718969903219 42.91718082630182], [29.16715130969322 29.890618579494237 … 35.594726804096204 35.59469893883525; 5.881150613044189 12.143095646216349 … 42.91718969903219 42.91718082630182])</code></pre><p>I will consider the first half as warmup</p><pre><code class="language-julia hljs">idx_t_keep =findfirst(&gt;(Ttot/2),t) : length(t)
 ei_less = view(ei,:,idx_t_keep)
 sigma_num = cov(ei_less;dims=2)
 mu_num = mean(ei_less;dims=2)[:]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2-element Vector{Float64}:
- 35.94671007371747
- 42.90445412853861</code></pre><p>Plot rate Vs analytic</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+ 35.94679397575826
+ 42.90380835747039</code></pre><p>Plot rate Vs analytic</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   hline!(plt,[mu_an[1]],label=L&quot;analytic $\mu_{\mathrm{exc}}$&quot;,
     color=colorant&quot;dark blue&quot;,linestyle=:dash)
   plot!(plt,t,ei[1,:],label=L&quot;numeric $r_{\mathrm{exc}}(t)$&quot;,color=:blue)
@@ -49,7 +49,7 @@ mu_num = mean(ei_less;dims=2)[:]</code></pre><pre class="documenter-example-outp
   hline!(plt,[mu_an[2]],label=L&quot;analytic $\mu_{\mathrm{inh}}$&quot;,
     color=colorant&quot;dark red&quot;,linestyle=:dash)
   plot!(plt,t,ei[2,:],label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red)
-end</code></pre><img src="91df1cef.svg" alt="Example block output"/><p>Plot distribution Vs analytic for excitatory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="ef615c53.svg" alt="Example block output"/><p>Plot distribution Vs analytic for excitatory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   histogram!(plt,ei_less[1,:];
     label=L&quot;numeric $r_{\mathrm{exc}}(t)$&quot;,color=:blue,
     alpha=0.5,nbins=100,normalize=:pdf)
@@ -64,7 +64,7 @@ end</code></pre><img src="91df1cef.svg" alt="Example block output"/><p>Plot dist
   xlabel!(plt,&quot;rate (Hz)&quot;)
   ylabel!(plt,&quot;probability density&quot;)
   plt
-end</code></pre><img src="03d4ca32.svg" alt="Example block output"/><p>same for inhibitory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="97e5cb03.svg" alt="Example block output"/><p>same for inhibitory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   histogram!(plt,ei_less[2,:];
     label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red,
     alpha=0.5,nbins=100,normalize=:pdf)
@@ -79,9 +79,72 @@ end</code></pre><img src="03d4ca32.svg" alt="Example block output"/><p>same for 
   xlabel!(plt,&quot;rate (Hz)&quot;)
   ylabel!(plt,&quot;probability density&quot;)
   plt
-end</code></pre><img src="e49ca0f9.svg" alt="Example block output"/><p>Now, the correlation between the two</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="09ff4df6.svg" alt="Example block output"/><p>Now, the correlation between the two</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   k=10
   scatter(ei_less[1,1:k:end],ei_less[2,1:k:end];
     label=L&quot;numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$&quot;,
     color=:black,alpha=0.5)
-end</code></pre><img src="742be05f.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Saturday 4 November 2023 14:35">Saturday 4 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end
+
+
+#= To compare this with analytic, we can print the analytic bivariate distribution
+as a series of ellypses. Code inspired to a blog post by &quot;David Gold&quot; with Python Code
+reinterpreted by chatGPT4 and debugged by me.
+=#
+
+function plot_bivariate_quantile_ellipse(mean::Vector{Float64}, covariance::Matrix{Float64},
+    plot_quantile::Float64 ; npoints::Int64=100)
+  # Validate input dimensions
+  @assert length(mean) == 2 &quot;Mean must be a 2-element vector&quot;
+  @assert size(covariance) == (2, 2) &quot;Covariance must be a 2x2 matrix&quot;
+  @assert plot_quantile &gt; 0 &amp;&amp; plot_quantile &lt; 1 &quot;Quantile must be between 0 and 1&quot;
+
+  # Calculate quantile of chi-squared distribution with 2 degrees of freedom
+  chisq_val = quantile(Chisq(2), plot_quantile)
+  # Eigen decomposition
+  (Eval, Evec) = eigen(covariance)
+  # Calculate radii of the ellipse
+  x_radius = sqrt(chisq_val * Eval[1])
+  y_radius = sqrt(chisq_val * Eval[2])
+  x_vec= [1 ; 0] # vector along x-axis
+  # Rotation angle from the eigenvector
+  cosrotation = -dot(x_vec,Evec[:,2])/(norm(x_vec)*norm(Evec[:,2]))
+  rotation =pi/2-acos(cosrotation)
+  # Rotation matrix
+  R = [cos(rotation) -sin(rotation); sin(rotation) cos(rotation)]
+  # Parametric equations of the ellipse before rotation
+  theta = range(0, 2*pi, length=npoints)
+  x_ellipse = x_radius * cos.(theta)
+  y_ellipse = y_radius * sin.(theta)
+  # Rotate and translate the ellipse
+  rotated_coords = R * [x_ellipse y_ellipse]&#39;
+  x_plot = rotated_coords[1, :] .+ mean[1]
+  y_plot = rotated_coords[2, :] .+ mean[2]
+  return x_plot, y_plot
+end
+
+
+
+theplot = let plt=plot()
+  k=10
+  scatter!(plt,ei_less[1,1:k:end],ei_less[2,1:k:end];
+    label=L&quot;numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$&quot;,
+    color=:black,alpha=0.5)
+  # 50% quantile
+  (xell,yell) = plot_bivariate_quantile_ellipse(mu_an,sigma_an,0.5)
+  plot!(plt,xell,yell;
+    label=&quot;analytic 50% quantile&quot;,
+    color=colorant&quot;forest green&quot;,
+    linewidth=3, alpha=0.5)
+  # 95% quantile
+  (xell,yell) = plot_bivariate_quantile_ellipse(mu_an,sigma_an,0.95)
+  plot!(plt,xell,yell;
+    label=&quot;analytic 95% quantile&quot;,
+    color=colorant&quot;forest green&quot;,
+    linewidth=3,alpha=0.5)
+  xlabel!(plt,&quot;rate exc (Hz)&quot;)
+  ylabel!(plt,&quot;rate inh (Hz)&quot;)
+  # mean as a big point
+  scatter!(plt,[mu_an[1]],[mu_an[2]],label=&quot;&quot;,
+    color=colorant&quot;green&quot;,marker=:circle,markersize=8)
+end</code></pre><img src="6fc20c61.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Saturday 4 November 2023 15:42">Saturday 4 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
