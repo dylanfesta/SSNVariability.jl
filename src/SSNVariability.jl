@@ -97,7 +97,7 @@ end
 
 # generate weight matrix
 """
-        diagtozero!(M::AbstractMatrix{T}) where T
+    diagtozero!(M::AbstractMatrix{T}) where T
 Replaces the matrix diagonal with zeros
 """
 function diagtozero!(M::AbstractMatrix{T}) where T
@@ -110,7 +110,7 @@ function diagtozero!(M::AbstractMatrix{T}) where T
 end
 
 """
-        norm_sum_rows!(mat)
+    norm_sum_rows!(mat)
 Rescales the matrix by row so that the sum of each row is 1.0
 """
 function norm_sum_rows!(mat)
@@ -261,7 +261,23 @@ function du_nonoise!(dest::V,u::V,
   return scalebytime!(dest,ntw)
 end
 
+"""
+  function run_network_nonoise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},
+      t_end::Real; verbose::Bool=false,stepsize=0.05) where R<:Real
 
+Runs the network simulation without any external noise.
+# Arguments
+- `ntw::RecurrentNeuralNetwork`
+- `r_start::Vector` : initial conditions
+- `t_end::Real`: the maximum time considered
+# Optional arguments
+- `verbose::Bool = false` : ODE solver is verbose
+- `stepsize::Real = 0.05` : stepsize for saving the solution (not solver stepsize)
+# Outputs
+- `times::Vector{R}` : the times at which the solution is saved
+- `u_end`::Matrix{R} : the final state
+- `r_end`::Matrix{R} : the final state as rate
+"""
 function run_network_nonoise(ntw::RecurrentNeuralNetwork{R},r_start::Vector{R},
     t_end::Real; verbose::Bool=false,stepsize=0.05) where R<:Real
   u0=ioinv.(r_start,ntw)
@@ -303,7 +319,7 @@ end
 
 
 """
-        run_network_to_convergence(u0, rn::RecurrentNeuralNetwork ;
+  run_network_to_convergence(u0, rn::RecurrentNeuralNetwork ;
                 t_end=80. , veltol=1E-4)
 Runs the network as described in [`run_network_nonoise`](@ref), but stops as soon as
 `norm(v) / n < veltol` where `v` is the velocity at time `t`.

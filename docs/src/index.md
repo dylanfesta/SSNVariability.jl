@@ -4,6 +4,11 @@ CurrentModule = SSNVariability
 
 # SSNVariability
 
+Nothing to see here!
+
+
+# Index
+
 ```@index
 ```
 
