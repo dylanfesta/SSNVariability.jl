@@ -49,7 +49,7 @@ mu_num = mean(ei_less;dims=2)[:]</code></pre><pre class="documenter-example-outp
   hline!(plt,[mu_an[2]],label=L&quot;analytic $\mu_{\mathrm{inh}}$&quot;,
     color=colorant&quot;dark red&quot;,linestyle=:dash)
   plot!(plt,t,ei[2,:],label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red)
-end</code></pre><img src="ef615c53.svg" alt="Example block output"/><p>Plot distribution Vs analytic for excitatory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="e611f8de.svg" alt="Example block output"/><h3 id="Single-unit-distribution"><a class="docs-heading-anchor" href="#Single-unit-distribution">Single unit distribution</a><a id="Single-unit-distribution-1"></a><a class="docs-heading-anchor-permalink" href="#Single-unit-distribution" title="Permalink"></a></h3><p>Plot distribution Vs analytic for excitatory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   histogram!(plt,ei_less[1,:];
     label=L&quot;numeric $r_{\mathrm{exc}}(t)$&quot;,color=:blue,
     alpha=0.5,nbins=100,normalize=:pdf)
@@ -64,7 +64,7 @@ end</code></pre><img src="ef615c53.svg" alt="Example block output"/><p>Plot dist
   xlabel!(plt,&quot;rate (Hz)&quot;)
   ylabel!(plt,&quot;probability density&quot;)
   plt
-end</code></pre><img src="97e5cb03.svg" alt="Example block output"/><p>same for inhibitory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="7e1e903d.svg" alt="Example block output"/><p>same for inhibitory units</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   histogram!(plt,ei_less[2,:];
     label=L&quot;numeric $r_{\mathrm{inh}}(t)$&quot;,color=:red,
     alpha=0.5,nbins=100,normalize=:pdf)
@@ -79,7 +79,7 @@ end</code></pre><img src="97e5cb03.svg" alt="Example block output"/><p>same for 
   xlabel!(plt,&quot;rate (Hz)&quot;)
   ylabel!(plt,&quot;probability density&quot;)
   plt
-end</code></pre><img src="09ff4df6.svg" alt="Example block output"/><p>Now, the correlation between the two</p><pre><code class="language-julia hljs">theplot = let plt=plot()
+end</code></pre><img src="54ff55ce.svg" alt="Example block output"/><h3 id="Bivariate-distribution"><a class="docs-heading-anchor" href="#Bivariate-distribution">Bivariate distribution</a><a id="Bivariate-distribution-1"></a><a class="docs-heading-anchor-permalink" href="#Bivariate-distribution" title="Permalink"></a></h3><p>Now, I consider the correlation between excitatory and inhibitory units.</p><pre><code class="language-julia hljs">theplot = let plt=plot()
   k=10
   scatter(ei_less[1,1:k:end],ei_less[2,1:k:end];
     label=L&quot;numeric $r_{\mathrm{exc}}(t)$ vs $r_{\mathrm{inh}}(t)$&quot;,
@@ -147,4 +147,35 @@ theplot = let plt=plot()
   # mean as a big point
   scatter!(plt,[mu_an[1]],[mu_an[2]],label=&quot;&quot;,
     color=colorant&quot;green&quot;,marker=:circle,markersize=8)
-end</code></pre><img src="6fc20c61.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Saturday 4 November 2023 15:42">Saturday 4 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><img src="150bafc9.svg" alt="Example block output"/><h3 id="Covariance-density-in-time"><a class="docs-heading-anchor" href="#Covariance-density-in-time">Covariance density in time</a><a id="Covariance-density-in-time-1"></a><a class="docs-heading-anchor-permalink" href="#Covariance-density-in-time" title="Permalink"></a></h3><p>Finally, I show the covariance density in time, once again comparing analytic and numeric.</p><pre><code class="language-julia hljs">function compute_covariance_density(X::AbstractVector{R},Y::AbstractVector{R},nsteps::Integer) where R
+  @assert length(X) == length(Y) &quot;vector must have same length&quot;
+  # forward shift
+  ret = Vector{Float64}(undef,2*nsteps-1)
+  mean_x = mean(X)
+  mean_y = mean(Y)
+  ndt_tot = length(X)
+  binned_sh = similar(X)
+  # 0 and forward
+  @simd for k in 0:nsteps-1
+    circshift!(binned_sh,Y,-k)
+    ret[nsteps-1+k+1] = dot(X,binned_sh)
+  end
+  # backward shift
+  @simd for k in 1:nsteps-1
+    circshift!(binned_sh,Y,k)
+    ret[nsteps-k] = dot(X,binned_sh)
+  end
+  @. ret = (ret /ndt_tot) - mean_x*mean_y
+end
+
+
+theplot = let ncov = 500
+  _times = range(start=-dt_save*ncov,stop=dt_save*ncov,length=2*ncov-1)
+  cov_ei = compute_covariance_density(ei_less[1,:],ei_less[2,:],500)
+  cov_ei ./= dt_save^2
+  plt=plot()
+  plot!(plt,_times,cov_ei;
+    label=&quot;numeric&quot;,
+    color=:black,linewidth=3,alpha=0.5,
+    xlabel=&quot;time (s)&quot;,ylabel=&quot;covariance exc vs inh&quot;)
+end</code></pre><img src="fe4c71c6.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Saturday 4 November 2023 16:13">Saturday 4 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
